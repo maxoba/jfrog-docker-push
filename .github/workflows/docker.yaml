@@ -1,0 +1,39 @@
+name: Dockerisation Workflow
+on:
+  push:
+#env:
+  #TAGS: $(cat ./version.txt)
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: Login to Artifactory
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.JF_URL }}
+          username: ${{ secrets.JF_USER }}
+          password: ${{ secrets.TOKEN }}
+      - name: kaniko auth
+        run: echo "{\"auths\":{\"${{ secrets.JF_URL }}\":{\"username\":\"${{ secrets.JF_USER }}\",\"password\":\"${{ secrets.TOKEN }}\"}}}" > ~/.docker/config.json
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.REPO }}/wema
+          tags: |
+            type=semver,pattern={{version}},value=v1.0.1
+      - name: Build image
+        uses: int128/kaniko-action@v1
+        with:
+          push: true
+          cache: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          registry-mirror: "hub.docker.com"
+          file: Docker/Dockerfile
+          context: .
+          build-args: jfrog_user=${{ secrets.JF_USER }}
+                 
